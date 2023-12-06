@@ -125,42 +125,11 @@
     </div>
   </div>
   <div v-else>
-    <Head>
-      <Title> {{ project.title }} - Minecraft {{ projectTypeDisplay }} </Title>
-      <Meta name="og:title" :content="`${project.title} - Minecraft ${projectTypeDisplay}`" />
-      <Meta
-        name="description"
-        :content="`${project.description} - Download the Minecraft ${projectTypeDisplay} ${
-          project.title
-        } by ${members.find((x) => x.role === 'Owner').user.username} on Modrinth`"
-      />
-      <Meta
-        name="apple-mobile-web-app-title"
-        :content="`${project.title} - Minecraft ${projectTypeDisplay}`"
-      />
-      <Meta name="og:description" :content="project.description" />
-      <Meta
-        name="og:image"
-        :content="project.icon_url ? project.icon_url : 'https://cdn.modrinth.com/placeholder.png'"
-      />
-      <Meta
-        name="robots"
-        :content="
-          project.status === 'approved' || project.status === 'archived' ? 'all' : 'noindex'
-        "
-      />
-    </Head>
     <Modal ref="modalLicense" :header="project.license.name ? project.license.name : 'License'">
       <div class="modal-license">
         <div class="markdown-body" v-html="renderString(licenseText)" />
       </div>
     </Modal>
-    <ModalReport
-      v-if="auth.user"
-      ref="modal_project_report"
-      :item-id="project.id"
-      item-type="project"
-    />
     <div
       :class="{
         'normal-page': true,
@@ -283,7 +252,7 @@
             <hr class="card-divider" />
             <div class="input-group">
               <template v-if="auth.user">
-                <button class="iconified-button" @click="$refs.modal_project_report.show()">
+                <button class="iconified-button" @click="() => reportProject(project.id)">
                   <ReportIcon aria-hidden="true" />
                   Report
                 </button>
@@ -714,7 +683,6 @@ import Badge from '~/components/ui/Badge.vue'
 import Categories from '~/components/ui/search/Categories.vue'
 import EnvironmentIndicator from '~/components/ui/EnvironmentIndicator.vue'
 import Modal from '~/components/ui/Modal.vue'
-import ModalReport from '~/components/ui/ModalReport.vue'
 import NavRow from '~/components/ui/NavRow.vue'
 import CopyCode from '~/components/ui/CopyCode.vue'
 import Avatar from '~/components/ui/Avatar.vue'
@@ -731,6 +699,7 @@ import LicenseIcon from '~/assets/images/utils/copyright.svg'
 import GalleryIcon from '~/assets/images/utils/image.svg'
 import VersionIcon from '~/assets/images/utils/version.svg'
 import { renderString } from '~/helpers/parse.js'
+import { reportProject } from '~/utils/report-helpers.ts'
 import Breadcrumbs from '~/components/ui/Breadcrumbs.vue'
 
 const data = useNuxtApp()
@@ -878,11 +847,6 @@ featuredVersions.value.sort((a, b) => {
   return gameVersions.indexOf(aLatest) - gameVersions.indexOf(bLatest)
 })
 
-const projectTypeDisplay = computed(() =>
-  data.$formatProjectType(
-    data.$getProjectTypeForDisplay(project.value.project_type, project.value.loaders)
-  )
-)
 const licenseIdDisplay = computed(() => {
   const id = project.value.license.id
 
@@ -895,6 +859,28 @@ const licenseIdDisplay = computed(() => {
   }
 })
 const featuredGalleryImage = computed(() => project.value.gallery.find((img) => img.featured))
+
+const projectTypeDisplay = data.$formatProjectType(
+  data.$getProjectTypeForDisplay(project.value.project_type, project.value.loaders)
+)
+const title = `${project.value.title} - Minecraft ${projectTypeDisplay}`
+const description = `${project.value.description} - Download the Minecraft ${projectTypeDisplay} ${
+  project.value.title
+} by ${members.value.find((x) => x.role === 'Owner').user.username} on Modrinth`
+
+if (!route.name.startsWith('type-id-settings')) {
+  useSeoMeta({
+    title,
+    description,
+    ogTitle: title,
+    ogDescription: project.value.description,
+    ogImage: project.value.icon_url ?? 'https://cdn.modrinth.com/placeholder.png',
+    robots:
+      project.value.status === 'approved' || project.value.status === 'archived'
+        ? 'all'
+        : 'noindex',
+  })
+}
 
 async function resetProject() {
   const newProject = await useBaseFetch(`project/${project.value.id}`)

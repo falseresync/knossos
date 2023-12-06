@@ -123,7 +123,7 @@
                 </nuxt-link>
                 <nuxt-link
                   v-if="$route.path !== '/app' && !cosmetics.hideModrinthAppPromos"
-                  class="btn btn-outline btn-primary"
+                  class="btn btn-outline btn-primary app-btn"
                   to="/app"
                 >
                   <DownloadIcon /> Get Modrinth App
@@ -236,7 +236,7 @@
               to="/dashboard/notifications"
               class="tab button-animation"
               :class="{
-                bubble: user.notifications.length > 0,
+                bubble: user.notifications.some((notif) => !notif.read),
                 'no-active': isMobileMenuOpen || isBrowseMenuOpen,
               }"
               title="Notifications"
@@ -330,7 +330,7 @@
       </div>
       <div class="links links-3" role="region" aria-label="Interact">
         <h4 aria-hidden="true">Interact</h4>
-        <a rel="noopener" :target="$external()" href="https://discord.gg/EUHuJHt"> Discord </a>
+        <a rel="noopener" :target="$external()" href="https://discord.modrinth.com"> Discord </a>
         <a rel="noopener" :target="$external()" href="https://twitter.com/modrinth"> Twitter </a>
         <a rel="noopener" :target="$external()" href="https://floss.social/@modrinth"> Mastodon </a>
         <a rel="noopener" :target="$external()" href="https://crowdin.com/project/modrinth">
@@ -391,13 +391,36 @@ const config = useRuntimeConfig()
 const route = useRoute()
 const link = config.public.siteUrl + route.path.replace(/\/+$/, '')
 useHead({
-  meta: [{ name: 'og:url', content: link }],
   link: [
     {
       rel: 'canonical',
       href: link,
     },
   ],
+})
+
+const description =
+  'Download Minecraft mods, plugins, datapacks, shaders, resourcepacks, and modpacks on Modrinth. ' +
+  'Discover and publish projects on Modrinth with a modern, easy to use interface and API.'
+
+useSeoMeta({
+  title: 'Modrinth',
+  description,
+  publisher: 'Modrinth',
+  themeColor: [{ color: '#1bd96a' }],
+  colorScheme: 'dark light',
+
+  // OpenGraph
+  ogTitle: 'Modrinth',
+  ogSiteName: 'Modrinth',
+  ogDescription: 'Discover and publish Minecraft content!',
+  ogType: 'website',
+  ogImage: 'https://cdn.modrinth.com/modrinth-new.png',
+  ogUrl: link,
+
+  // Twitter
+  twitterCard: 'summary',
+  twitterSite: '@modrinth',
 })
 
 let developerModeCounter = 0
@@ -1173,6 +1196,12 @@ export default defineNuxtComponent({
   justify-content: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
+}
+
+@media (max-width: 1200px) {
+  .app-btn {
+    display: none;
+  }
 }
 </style>
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>

@@ -1,11 +1,12 @@
 import { promises as fs } from 'fs'
 import { pathToFileURL } from 'node:url'
 import svgLoader from 'vite-svg-loader'
-import { resolve, basename } from 'pathe'
+import { resolve, basename, relative } from 'pathe'
 import { defineNuxtConfig } from 'nuxt/config'
 import { $fetch } from 'ofetch'
 import { globIterate } from 'glob'
 import { match as matchLocale } from '@formatjs/intl-localematcher'
+import { consola } from 'consola'
 
 const STAGING_API_URL = 'https://staging-api.modrinth.com/v2/'
 
@@ -20,25 +21,6 @@ const favicons = {
   '(prefers-color-scheme:no-preference)': '/favicon-light.ico',
   '(prefers-color-scheme:light)': '/favicon-light.ico',
   '(prefers-color-scheme:dark)': '/favicon.ico',
-}
-
-const meta = {
-  description:
-    'Download Minecraft mods, plugins, datapacks, shaders, resourcepacks, and modpacks on Modrinth. Discover and publish projects on Modrinth with a modern, easy to use interface and API.',
-  publisher: 'Rinth, Inc.',
-  'apple-mobile-web-app-title': 'Modrinth',
-  'theme-color': '#1bd96a',
-  'color-scheme': 'dark light',
-  // OpenGraph
-  'og:title': 'Modrinth',
-  'og:site_name': 'Modrinth',
-  'og:description': 'An open source modding platform',
-  'og:type': 'website',
-  'og:url': 'https://modrinth.com',
-  'og:image': 'https://cdn.modrinth.com/modrinth-new.png?',
-  // Twitter
-  'twitter:card': 'summary',
-  'twitter:site': '@modrinth',
 }
 
 /**
@@ -58,6 +40,9 @@ const localesCategoriesOverrides: Partial<Record<string, 'fun' | 'experimental'>
   'en-x-lolcat': 'fun',
   'en-x-uwu': 'fun',
   'ru-x-bandit': 'fun',
+  ar: 'experimental',
+  he: 'experimental',
+  pes: 'experimental',
 }
 
 export default defineNuxtConfig({
@@ -67,9 +52,6 @@ export default defineNuxtConfig({
         lang: 'en',
       },
       title: 'Modrinth',
-      meta: Object.entries(meta).map(([name, content]): object => {
-        return { name, content }
-      }),
       link: [
         // The type is necessary because the linter can't always compare this very nested/complex type on itself
         ...preloadedFonts.map((font): object => {
@@ -200,9 +182,10 @@ export default defineNuxtConfig({
     async 'vintl:extendOptions'(opts) {
       opts.locales ??= []
 
+      const isProduction = getDomain() === 'https://modrinth.com'
+
       const resolveCompactNumberDataImport = await (async () => {
         const compactNumberLocales: string[] = []
-        const resolvedImports = new Map<string, string>()
 
         for await (const localeFile of globIterate(
           'node_modules/@vintl/compact-number/dist/locale-data/*.mjs',
@@ -210,7 +193,6 @@ export default defineNuxtConfig({
         )) {
           const tag = basename(localeFile, '.mjs')
           compactNumberLocales.push(tag)
-          resolvedImports.set(tag, String(pathToFileURL(resolve(localeFile))))
         }
 
         function resolveImport(tag: string) {
@@ -223,31 +205,54 @@ export default defineNuxtConfig({
         return resolveImport
       })()
 
+      const resolveOmorphiaLocaleImport = await (async () => {
+        const omorphiaLocales: string[] = []
+        const omorphiaLocaleSets = new Map<string, { files: { from: string }[] }>()
+
+        for await (const localeDir of globIterate('node_modules/omorphia/locales/*', {
+          posix: true,
+        })) {
+          const tag = basename(localeDir)
+          omorphiaLocales.push(tag)
+
+          const localeFiles: { from: string; format?: string }[] = []
+
+          omorphiaLocaleSets.set(tag, { files: localeFiles })
+
+          for await (const localeFile of globIterate(`${localeDir}/*`, { posix: true })) {
+            localeFiles.push({
+              from: pathToFileURL(localeFile).toString(),
+              format: 'default',
+            })
+          }
+        }
+
+        return function resolveLocaleImport(tag: string) {
+          return omorphiaLocaleSets.get(matchLocale([tag], omorphiaLocales, 'en-x-placeholder'))
+        }
+      })()
+
       for await (const localeDir of globIterate('locales/*/', { posix: true })) {
         const tag = basename(localeDir)
-        if (!enabledLocales.includes(tag) && opts.defaultLocale !== tag) continue
+        if (isProduction && !enabledLocales.includes(tag) && opts.defaultLocale !== tag) continue
 
         const locale =
           opts.locales.find((locale) => locale.tag === tag) ??
           opts.locales[opts.locales.push({ tag }) - 1]
 
+        const localeFiles = (locale.files ??= [])
+
         for await (const localeFile of globIterate(`${localeDir}/*`, { posix: true })) {
           const fileName = basename(localeFile)
           if (fileName === 'index.json') {
-            if (locale.file == null) {
-              locale.file = {
-                from: `./${localeFile}`,
-                format: 'crowdin',
-              }
-            } else {
-              ;(locale.files ??= []).push({
-                from: `./${localeFile}`,
-                format: 'crowdin',
-              })
-            }
+            localeFiles.push({
+              from: `./${localeFile}`,
+              format: 'crowdin',
+            })
           } else if (fileName === 'meta.json') {
-            /** @type {Record<string, { message: string }>} */
-            const meta = await fs.readFile(localeFile, 'utf8').then((date) => JSON.parse(date))
+            const meta: Record<string, { message: string }> = await fs
+              .readFile(localeFile, 'utf8')
+              .then((date) => JSON.parse(date))
             locale.meta ??= {}
             for (const key in meta) {
               locale.meta[key] = meta[key].message
@@ -260,6 +265,11 @@ export default defineNuxtConfig({
         const categoryOverride = localesCategoriesOverrides[tag]
         if (categoryOverride != null) {
           ;(locale.meta ??= {}).category = categoryOverride
+        }
+
+        const omorphiaLocaleData = resolveOmorphiaLocaleImport(tag)
+        if (omorphiaLocaleData != null) {
+          localeFiles.push(...omorphiaLocaleData.files)
         }
 
         const cnDataImport = resolveCompactNumberDataImport(tag)
@@ -311,8 +321,46 @@ export default defineNuxtConfig({
   modules: ['@vintl/nuxt', '@nuxtjs/turnstile'],
   vintl: {
     defaultLocale: 'en-US',
+    locales: [
+      {
+        tag: 'en-US',
+        meta: {
+          static: {
+            iso: 'en',
+          },
+        },
+      },
+    ],
     storage: 'cookie',
     parserless: 'only-prod',
+    seo: {
+      defaultLocaleHasParameter: false,
+    },
+    onParseError({ error, message, messageId, moduleId, parseMessage, parserOptions }) {
+      const errorMessage = String(error)
+      const modulePath = relative(__dirname, moduleId)
+
+      try {
+        const fallback = parseMessage(message, { ...parserOptions, ignoreTag: true })
+
+        consola.warn(
+          `[i18n] ${messageId} in ${modulePath} cannot be parsed normally due to ${errorMessage}. The tags will will not be parsed.`
+        )
+
+        return fallback
+      } catch (err) {
+        const secondaryErrorMessage = String(err)
+
+        const reason =
+          errorMessage === secondaryErrorMessage
+            ? errorMessage
+            : `${errorMessage} and ${secondaryErrorMessage}`
+
+        consola.warn(
+          `[i18n] ${messageId} in ${modulePath} cannot be parsed due to ${reason}. It will be skipped.`
+        )
+      }
+    },
   },
   turnstile: {
     siteKey: '0x4AAAAAAAHWfmKCm7cUG869',

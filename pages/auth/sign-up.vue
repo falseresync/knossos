@@ -3,27 +3,27 @@
     <h1>Sign up with</h1>
 
     <section class="third-party">
-      <a class="btn discord-btn" :href="getAuthUrl('discord')">
+      <a class="btn discord-btn" :href="getAuthUrl('discord', redirectTarget)">
         <DiscordIcon />
         <span>Discord</span>
       </a>
-      <a class="btn" :href="getAuthUrl('github')">
+      <a class="btn" :href="getAuthUrl('github', redirectTarget)">
         <GitHubIcon />
         <span>GitHub</span>
       </a>
-      <a class="btn" :href="getAuthUrl('microsoft')">
+      <a class="btn" :href="getAuthUrl('microsoft', redirectTarget)">
         <MicrosoftIcon />
         <span>Microsoft</span>
       </a>
-      <a class="btn" :href="getAuthUrl('google')">
+      <a class="btn" :href="getAuthUrl('google', redirectTarget)">
         <GoogleIcon />
         <span>Google</span>
       </a>
-      <a class="btn" :href="getAuthUrl('steam')">
+      <a class="btn" :href="getAuthUrl('steam', redirectTarget)">
         <SteamIcon />
         <span>Steam</span>
       </a>
-      <a class="btn" :href="getAuthUrl('gitlab')">
+      <a class="btn" :href="getAuthUrl('gitlab', redirectTarget)">
         <GitLabIcon />
         <span>GitLab</span>
       </a>
@@ -38,7 +38,8 @@
         <input
           id="email"
           v-model="email"
-          type="text"
+          type="email"
+          autocomplete="username"
           class="auth-form__input"
           placeholder="Email"
         />
@@ -51,6 +52,7 @@
           id="username"
           v-model="username"
           type="text"
+          autocomplete="username"
           class="auth-form__input"
           placeholder="Username"
         />
@@ -64,6 +66,7 @@
           v-model="password"
           class="auth-form__input"
           type="password"
+          autocomplete="new-password"
           placeholder="Password"
         />
       </div>
@@ -75,6 +78,7 @@
           id="confirm-password"
           v-model="confirmPassword"
           type="password"
+          autocomplete="new-password"
           class="auth-form__input"
           placeholder="Confirm password"
         />
@@ -86,6 +90,7 @@
         v-model="subscribe"
         class="subscribe-btn"
         label="Subscribe to updates about Modrinth"
+        description="Subscribe to updates about Modrinth"
       />
 
       <p>
@@ -123,6 +128,8 @@ useHead({
 
 const auth = await useAuth()
 const route = useRoute()
+
+const redirectTarget = route.query.redirect
 
 if (route.fullPath.includes('new_account=true')) {
   await navigateTo(

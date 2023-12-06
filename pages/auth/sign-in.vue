@@ -11,6 +11,7 @@
         maxlength="11"
         type="text"
         placeholder="Enter code..."
+        @keyup.enter="begin2FASignIn"
       />
 
       <button class="btn btn-primary continue-btn" @click="begin2FASignIn">
@@ -21,27 +22,27 @@
       <h1>Sign in with</h1>
 
       <section class="third-party">
-        <a class="btn" :href="getAuthUrl('discord')">
+        <a class="btn" :href="getAuthUrl('discord', redirectTarget)">
           <DiscordIcon />
           <span>Discord</span>
         </a>
-        <a class="btn" :href="getAuthUrl('github')">
+        <a class="btn" :href="getAuthUrl('github', redirectTarget)">
           <GitHubIcon />
           <span>GitHub</span>
         </a>
-        <a class="btn" :href="getAuthUrl('microsoft')">
+        <a class="btn" :href="getAuthUrl('microsoft', redirectTarget)">
           <MicrosoftIcon />
           <span>Microsoft</span>
         </a>
-        <a class="btn" :href="getAuthUrl('google')">
+        <a class="btn" :href="getAuthUrl('google', redirectTarget)">
           <GoogleIcon />
           <span>Google</span>
         </a>
-        <a class="btn" :href="getAuthUrl('steam')">
+        <a class="btn" :href="getAuthUrl('steam', redirectTarget)">
           <SteamIcon />
           <span>Steam</span>
         </a>
-        <a class="btn" :href="getAuthUrl('gitlab')">
+        <a class="btn" :href="getAuthUrl('gitlab', redirectTarget)">
           <GitLabIcon />
           <span>GitLab</span>
         </a>
@@ -57,6 +58,7 @@
             id="email"
             v-model="email"
             type="text"
+            autocomplete="username"
             class="auth-form__input"
             placeholder="Email or username"
           />
@@ -69,6 +71,7 @@
             id="password"
             v-model="password"
             type="password"
+            autocomplete="current-password"
             class="auth-form__input"
             placeholder="Password"
           />
@@ -108,6 +111,8 @@ useHead({
 const auth = await useAuth()
 const route = useRoute()
 
+const redirectTarget = route.query.redirect || ''
+
 if (route.fullPath.includes('new_account=true')) {
   await navigateTo(
     `/auth/welcome?authToken=${route.query.code}${
@@ -119,7 +124,7 @@ if (route.fullPath.includes('new_account=true')) {
 }
 
 if (auth.value.user) {
-  await navigateTo('/dashboard')
+  await finishSignIn()
 }
 
 const turnstile = ref()
@@ -187,6 +192,7 @@ async function begin2FASignIn() {
   }
   stopLoading()
 }
+
 async function finishSignIn(token) {
   if (token) {
     await useAuth(token)
@@ -194,7 +200,10 @@ async function finishSignIn(token) {
   }
 
   if (route.query.redirect) {
-    await navigateTo(route.query.redirect)
+    const redirect = decodeURIComponent(route.query.redirect)
+    await navigateTo(redirect, {
+      replace: true,
+    })
   } else {
     await navigateTo('/dashboard')
   }

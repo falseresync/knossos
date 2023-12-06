@@ -46,7 +46,7 @@
         </template>
         <div v-else class="universal-body">
           <p>You have no unread notifications.</p>
-          <nuxt-link class="iconified-button" to="/dashboard/notifications">
+          <nuxt-link class="iconified-button" to="/dashboard/notifications/history">
             <HistoryIcon /> View notification history
           </nuxt-link>
         </div>
@@ -88,13 +88,6 @@
             >
           </div>
           <div class="grid-display__item">
-            <div class="label">Total revenue</div>
-            <div class="value">
-              {{ $formatMoney(payouts.all_time, true) }}
-            </div>
-            <span>{{ $formatMoney(payouts.last_month, true) }} in the last month</span>
-          </div>
-          <div class="grid-display__item">
             <div class="label">Current balance</div>
             <div class="value">
               {{ $formatMoney(auth.user.payout_data.balance, true) }}
@@ -127,12 +120,9 @@ useHead({
 
 const auth = await useAuth()
 
-const [{ data: projects }, { data: payouts }] = await Promise.all([
+const [{ data: projects }] = await Promise.all([
   useAsyncData(`user/${auth.value.user.id}/projects`, () =>
     useBaseFetch(`user/${auth.value.user.id}/projects`)
-  ),
-  useAsyncData(`user/${auth.value.user.id}/payouts`, () =>
-    useBaseFetch(`user/${auth.value.user.id}/payouts`)
   ),
 ])
 
@@ -155,7 +145,7 @@ const extraNotifs = computed(() => allNotifs.length - notifications.value.length
   display: grid;
   grid-template:
     'header header'
-    'notifications analytics' / 1fr 1fr;
+    'notifications analytics' / 1fr auto;
   gap: var(--spacing-card-md);
 
   > .universal-card {

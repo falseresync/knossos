@@ -414,7 +414,7 @@ export default defineNuxtComponent({
         method: 'DELETE',
       })
       await initUserProjects()
-      await this.$router.push('/dashboard/review')
+      await this.$router.push('/dashboard/projects')
       this.$notify({
         group: 'main',
         title: 'Project deleted',
@@ -465,5 +465,9 @@ svg {
 .summary-input {
   min-height: 8rem;
   max-width: 24rem;
+}
+
+.multiselect {
+  max-width: 15rem;
 }
 </style>
